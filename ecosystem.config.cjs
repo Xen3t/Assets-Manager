@@ -8,6 +8,7 @@ module.exports = {
       script: 'node_modules/next/dist/bin/next',
       args: 'start -p 3301',
       cwd: './',
+      exec_mode: 'fork',
       instances: 1,
       autorestart: true,
       watch: false,
