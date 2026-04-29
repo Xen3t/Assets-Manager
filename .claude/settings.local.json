@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:claude.ai)",
+      "Bash(xargs grep *)",
+      "Bash(yes)",
+      "Bash(npx create-next-app@latest . --typescript --eslint --no-tailwind --app --src-dir --import-alias \"@/*\" --no-git)",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('@eslint/eslintrc'\\)\")",
+      "Bash(npx next *)",
+      "Bash(curl -s http://localhost:3301)",
+      "Bash(node -e \"const {randomBytes} = require\\('crypto'\\); console.log\\(randomBytes\\(32\\).toString\\('base64'\\)\\)\")",
+      "Bash(node scripts/seed.mjs)",
+      "Bash(npx tsc *)",
+      "Bash(curl -s -X POST http://localhost:3301/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"media@hoortrade.com\",\"password\":\"admin1234\"}')",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
