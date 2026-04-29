@@ -24,7 +24,7 @@ db.exec(`
 `)
 
 const users = [
-  { email: 'media@hoortrade.com', password: 'admin1234', role: 'graphiste' },
+  { email: 'mvinet', password: '1111', role: 'graphiste' },
 ]
 
 const insert = db.prepare('INSERT OR IGNORE INTO users (email, password, role) VALUES (?, ?, ?)')
