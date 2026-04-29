@@ -6,7 +6,8 @@ export function initSchema(db: DatabaseSync): void {
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       email       TEXT    NOT NULL UNIQUE,
       password    TEXT    NOT NULL,
-      role        TEXT    NOT NULL CHECK(role IN ('graphiste', 'visiteur')),
+      role        TEXT    NOT NULL CHECK(role IN ('admin', 'graphiste', 'visiteur')),
+      suspended   INTEGER NOT NULL DEFAULT 0,
       created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -55,4 +56,7 @@ export function initSchema(db: DatabaseSync): void {
     CREATE INDEX IF NOT EXISTS idx_assets_hash     ON assets(hash);
     CREATE INDEX IF NOT EXISTS idx_asset_tags_tag  ON asset_tags(tag_id);
   `)
+
+  // Migrations progressives
+  try { db.exec("ALTER TABLE users ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0") } catch { /* déjà présente */ }
 }

@@ -6,10 +6,11 @@ import Header from '@/components/shared/Header'
 import FilterBar, { type Filters } from '@/components/library/FilterBar'
 import AssetCard from '@/components/library/AssetCard'
 import AssetDetailModal from '@/components/library/AssetDetailModal'
+import SearchSpotlight from '@/components/library/SearchSpotlight'
 import type { AssetWithDetails, Session, AssetStatus } from '@/types'
 
-export default function LibraryClient({ session }: { session: Session }) {
-  const isGraphiste = session.role === 'graphiste'
+export default function LibraryClient({ session }: { session: Session | null }) {
+  const isPrivileged = session?.role === 'graphiste' || session?.role === 'admin'
 
   const [assets, setAssets] = useState<AssetWithDetails[]>([])
   const [total, setTotal] = useState(0)
@@ -37,9 +38,7 @@ export default function LibraryClient({ session }: { session: Session }) {
     setLoading(false)
   }, [filters])
 
-  useEffect(() => {
-    fetchAssets()
-  }, [fetchAssets])
+  useEffect(() => { fetchAssets() }, [fetchAssets])
 
   async function handleStatusChange(id: number, status: AssetStatus | 'active') {
     if (status === 'deleted') {
@@ -56,46 +55,49 @@ export default function LibraryClient({ session }: { session: Session }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Header session={session} onUploaded={isGraphiste ? fetchAssets : undefined} />
+      <Header session={session} onUploaded={isPrivileged ? fetchAssets : undefined} />
 
-      <main className="flex flex-1 flex-col gap-6 p-6">
-        {/* Filtres */}
-        <FilterBar filters={filters} onChange={setFilters} total={total} />
+      <main className="flex flex-1 flex-col bg-background">
+        {/* Zone recherche + filtres */}
+        <div style={{
+          backgroundColor: '#f1f3f5',
+          borderBottom: '1px solid #e5e7eb',
+          padding: '28px 24px 24px',
+        }}>
+          <FilterBar filters={filters} onChange={setFilters} total={total} />
+        </div>
 
-        {/* Grille */}
-        {loading ? (
-          <div className="flex flex-1 items-center justify-center">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-              className="h-8 w-8 rounded-full border-2 border-brand-teal border-t-transparent"
-            />
-          </div>
-        ) : assets.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-            <p className="text-text-secondary">Aucun asset trouvé</p>
-            {isGraphiste && (
-              <p className="text-sm text-text-disabled">Utilise le bouton &quot;Importer&quot; dans la barre en haut pour commencer</p>
-            )}
-          </div>
-        ) : (
-          <motion.div layout className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            <AnimatePresence>
-              {assets.map((asset) => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  onClick={setSelectedAsset}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
+        {/* Résultats */}
+        <div style={{ flex: 1, padding: '24px' }}>
+          {loading ? (
+            <div className="flex flex-1 items-center justify-center" style={{ minHeight: '300px' }}>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                className="h-8 w-8 rounded-full border-2 border-brand-teal border-t-transparent"
+              />
+            </div>
+          ) : assets.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center" style={{ minHeight: '300px' }}>
+              <p className="text-text-secondary">Aucun asset trouvé</p>
+            </div>
+          ) : (
+            <motion.div layout className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+              <AnimatePresence>
+                {assets.map((asset) => (
+                  <AssetCard key={asset.id} asset={asset} onClick={setSelectedAsset} />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          )}
+        </div>
       </main>
+
+      <SearchSpotlight onSelect={setSelectedAsset} />
 
       <AssetDetailModal
         asset={selectedAsset}
-        isGraphiste={isGraphiste}
+        isGraphiste={isPrivileged}
         onClose={() => setSelectedAsset(null)}
         onSaved={fetchAssets}
         onStatusChange={handleStatusChange}

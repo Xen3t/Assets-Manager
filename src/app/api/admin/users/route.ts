@@ -6,7 +6,7 @@ import type { UserRole } from '@/types'
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value
   const session = token ? await verifySession(token) : null
-  if (!session || session.role !== 'graphiste') {
+  if (!session || session.role !== 'admin') {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value
   const session = token ? await verifySession(token) : null
-  if (!session || session.role !== 'graphiste') {
+  if (!session || session.role !== 'admin') {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

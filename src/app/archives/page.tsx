@@ -1,15 +1,14 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { verifySession, COOKIE_NAME } from '@/lib/auth/session'
-import AdminClient from './AdminClient'
+import ArchivesClient from './ArchivesClient'
 
-export default async function AdminPage() {
+export default async function ArchivesPage() {
   const cookieStore = await cookies()
   const token = cookieStore.get(COOKIE_NAME)?.value
   const session = token ? await verifySession(token) : null
 
-  if (!session) redirect('/login')
-  if (session.role !== 'admin') redirect('/')
+  if (!session || (session.role !== 'graphiste' && session.role !== 'admin')) redirect('/')
 
-  return <AdminClient session={session} />
+  return <ArchivesClient session={session} />
 }

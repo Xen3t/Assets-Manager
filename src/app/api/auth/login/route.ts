@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Identifiants invalides' }, { status: 401 })
   }
 
+  if (user.suspended) {
+    return NextResponse.json({ error: 'Compte suspendu' }, { status: 403 })
+  }
+
   const valid = await verifyPassword(password, user.password)
   if (!valid) {
     return NextResponse.json({ error: 'Identifiants invalides' }, { status: 401 })

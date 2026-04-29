@@ -13,7 +13,10 @@
       "Bash(node scripts/seed.mjs)",
       "Bash(npx tsc *)",
       "Bash(curl -s -X POST http://localhost:3301/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"media@hoortrade.com\",\"password\":\"admin1234\"}')",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"import\\('node:sqlite'\\).then\\(\\({DatabaseSync}\\)=>{const db=new DatabaseSync\\('data/assets.db'\\);db.prepare\\(\\\\\"UPDATE users SET role='admin' WHERE email='mvinet'\\\\\"\\).run\\(\\);const u=db.prepare\\('SELECT id,email,role FROM users'\\).all\\(\\);console.log\\(u\\)}\\)\")",
+      "Bash(node -e \"import\\('node:sqlite'\\).then\\(\\({DatabaseSync}\\)=>{const db=new DatabaseSync\\('data/assets.db'\\);try{db.exec\\('ALTER TABLE users ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0'\\);console.log\\('Migration OK'\\)}catch\\(e\\){console.log\\('Colonne déjà présente:',e.message\\)}}\\)\")",
+      "Bash(Remove-Item -Recurse -Force \"c:\\\\Users\\\\mathias.vinet\\\\Desktop\\\\Assets Manager\\\\src\\\\app\\\\api\\\\files\\\\[filename]\")"
     ]
   }
 }

@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const token = req.cookies.get(COOKIE_NAME)?.value
   const session = token ? await verifySession(token) : null
 
-  if (!session || session.role !== 'graphiste') {
+  if (!session || (session.role !== 'graphiste' && session.role !== 'admin')) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   const color = formData.get('color') as string | null
   const style = formData.get('style') as string | null
 
-  const filepath = saveFile(buffer, hash, filetype)
+  const filepath = saveFile(buffer, hash, filetype, brand)
   const assetId = createAsset({
     filename: name,
     filepath,

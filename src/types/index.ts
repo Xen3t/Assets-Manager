@@ -4,7 +4,7 @@ export type AssetStatus = 'active' | 'archived' | 'deleted'
 
 export type AssetFormat = 'svg' | 'png' | 'ico' | 'eps'
 
-export type UserRole = 'graphiste' | 'visiteur'
+export type UserRole = 'admin' | 'graphiste' | 'visiteur'
 
 export interface Asset {
   id: number
@@ -49,12 +49,14 @@ export interface User {
   id: number
   email: string
   role: UserRole
+  suspended: boolean
   createdAt: string
 }
 
 // Type interne pour les lignes retournées par SQLite (inclut le hash du mot de passe)
-export interface DbUser extends Omit<User, 'createdAt'> {
+export interface DbUser extends Omit<User, 'createdAt' | 'suspended'> {
   password: string
+  suspended: number  // SQLite retourne 0/1
   created_at: string
 }
 

@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const token = req.cookies.get(COOKIE_NAME)?.value
   const session = token ? await verifySession(token) : null
-  if (!session || session.role !== 'graphiste') {
+  if (!session || session.role !== 'graphiste' && session.role !== 'admin') {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
@@ -34,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const token = req.cookies.get(COOKIE_NAME)?.value
   const session = token ? await verifySession(token) : null
-  if (!session || session.role !== 'graphiste') {
+  if (!session || session.role !== 'graphiste' && session.role !== 'admin') {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
