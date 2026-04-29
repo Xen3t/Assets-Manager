@@ -155,6 +155,12 @@ export default function LoginForm() {
             </button>
           </form>
         </div>
+
+        <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '13px', color: '#9ca3af' }}>
+          <a href="/" style={{ color: '#9ca3af', textDecoration: 'none' }}>
+            Continuer en tant que visiteur →
+          </a>
+        </p>
       </div>
     </div>
   )

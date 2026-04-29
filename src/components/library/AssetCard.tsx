@@ -7,6 +7,8 @@ import type { AssetWithDetails } from '@/types'
 interface Props {
   asset: AssetWithDetails
   onClick: (asset: AssetWithDetails) => void
+  selected?: boolean
+  onSelect?: (id: number, selected: boolean) => void
 }
 
 function AssetPreview({ asset }: { asset: AssetWithDetails }) {
@@ -38,7 +40,7 @@ function DownloadIcon() {
   )
 }
 
-export default function AssetCard({ asset, onClick }: Props) {
+export default function AssetCard({ asset, onClick, selected = false, onSelect }: Props) {
   const [hovered, setHovered] = useState(false)
 
   function handleDownload(e: React.MouseEvent) {
@@ -48,6 +50,13 @@ export default function AssetCard({ asset, onClick }: Props) {
     a.download = asset.filename
     a.click()
   }
+
+  function handleCheckbox(e: React.MouseEvent) {
+    e.stopPropagation()
+    onSelect?.(asset.id, !selected)
+  }
+
+  const showCheckbox = hovered || selected
 
   return (
     <motion.div
@@ -64,14 +73,47 @@ export default function AssetCard({ asset, onClick }: Props) {
         aspectRatio: '1',
         borderRadius: '12px',
         backgroundColor: '#fff',
-        border: '1px solid #e5e7eb',
+        border: selected ? '2px solid #5d9228' : '1px solid #e5e7eb',
         overflow: 'hidden',
         cursor: 'pointer',
-        boxShadow: hovered ? '0 4px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.06)',
-        transition: 'box-shadow 0.15s',
+        boxShadow: selected
+          ? '0 0 0 3px rgba(93,146,40,0.15)'
+          : hovered ? '0 4px 12px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.06)',
+        transition: 'box-shadow 0.15s, border-color 0.15s',
       }}
     >
       <AssetPreview asset={asset} />
+
+      {/* Checkbox sélection */}
+      <AnimatePresence>
+        {showCheckbox && onSelect && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ duration: 0.1 }}
+            onClick={handleCheckbox}
+            style={{
+              position: 'absolute', top: '8px', left: '8px',
+              width: '20px', height: '20px',
+              borderRadius: '6px',
+              border: `2px solid ${selected ? '#5d9228' : '#d1d5db'}`,
+              backgroundColor: selected ? '#5d9228' : 'rgba(255,255,255,0.9)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+              transition: 'all 0.12s',
+              zIndex: 2,
+            }}
+          >
+            {selected && (
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+                <polyline points="2,6 5,9 10,3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Overlay hover */}
       <AnimatePresence>
@@ -88,7 +130,6 @@ export default function AssetCard({ asset, onClick }: Props) {
               padding: '8px',
             }}
           >
-            {/* Bouton téléchargement */}
             <button
               onClick={handleDownload}
               title="Télécharger"

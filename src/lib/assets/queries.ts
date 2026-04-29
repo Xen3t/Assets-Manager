@@ -185,6 +185,16 @@ export function updateAssetStatus(assetId: number, status: AssetStatus): void {
   db.prepare('UPDATE assets SET status = ?, deleted_at = ? WHERE id = ?').run(status, deletedAt, assetId)
 }
 
+export function updateAssetFile(assetId: number, newFilepath: string, newHash: string): void {
+  const db = getDb()
+  const current = db.prepare('SELECT filepath, hash, version FROM assets WHERE id = ?').get(assetId) as { filepath: string; hash: string; version: number } | undefined
+  if (!current) return
+  // Archive l'ancienne version
+  db.prepare('INSERT INTO asset_versions (asset_id, version_number, filepath, hash) VALUES (?, ?, ?, ?)').run(assetId, current.version, current.filepath, current.hash)
+  // Met à jour l'asset
+  db.prepare('UPDATE assets SET filepath = ?, hash = ?, version = version + 1 WHERE id = ?').run(newFilepath, newHash, assetId)
+}
+
 export function findAssetByHash(hash: string): AssetWithDetails | null {
   const db = getDb()
   const row = db.prepare(`

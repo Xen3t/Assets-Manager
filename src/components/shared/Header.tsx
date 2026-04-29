@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import UploadZone from '@/components/library/UploadZone'
 import type { Session } from '@/types'
 
 const MENU_ITEMS = [
@@ -19,7 +18,7 @@ const inputStyle: React.CSSProperties = {
   color: '#1f2937', outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
 }
 
-export default function Header({ session, onUploaded }: { session: Session | null; onUploaded?: () => void }) {
+export default function Header({ session }: { session: Session | null }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [showPwdModal, setShowPwdModal] = useState(false)
@@ -69,10 +68,6 @@ export default function Header({ session, onUploaded }: { session: Session | nul
         <Link href="/" className="text-base font-semibold text-text-primary shrink-0 flex-1 transition-colors">
           Assets <span className="font-bold text-brand-green">Manager</span>
         </Link>
-
-        {(session?.role === 'graphiste' || session?.role === 'admin') && onUploaded && (
-          <UploadZone onUploaded={onUploaded} />
-        )}
 
         {!session ? (
           <div className="flex items-center gap-3">

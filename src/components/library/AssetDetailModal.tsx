@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { AssetWithDetails, Brand, AssetStatus } from '@/types'
 
@@ -75,6 +75,10 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
   const [saving, setSaving] = useState(false)
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [updating, setUpdating] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [hovered, setHovered] = useState<string | null>(null)
+  const h = (id: string) => ({ onMouseEnter: () => setHovered(id), onMouseLeave: () => setHovered(null) })
 
   useEffect(() => {
     if (!asset) { setMode('read'); return }
@@ -113,6 +117,18 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
     a.href = asset.filepath
     a.download = asset.filename
     a.click()
+  }
+
+  async function handleUpdateFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !asset) return
+    setUpdating(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch(`/api/assets/${asset.id}/version`, { method: 'POST', body: fd })
+    setUpdating(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (res.ok) { onSaved(); onClose() }
   }
 
   async function handleArchive() {
@@ -167,7 +183,7 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
               style={{
                 display: 'flex',
                 width: '100%',
-                maxWidth: '700px',
+                maxWidth: '820px',
                 maxHeight: '90vh',
                 borderRadius: '16px',
                 backgroundColor: '#f1f3f5',
@@ -177,7 +193,7 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
             >
               {/* Colonne preview */}
               <div style={{
-                width: '200px',
+                width: '280px',
                 flexShrink: 0,
                 display: 'flex',
                 flexDirection: 'column',
@@ -189,7 +205,7 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                 borderRight: '1px solid #e5e7eb',
               }}>
                 <div style={{
-                  width: '140px', height: '140px',
+                  width: '220px', height: '220px',
                   borderRadius: '12px',
                   backgroundColor: '#f1f3f5',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -219,13 +235,17 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
 
                 <button
                   onClick={handleDownload}
+                  {...h('download')}
                   style={{
                     width: '100%', borderRadius: '8px',
-                    backgroundColor: '#5d9228', border: 'none',
+                    backgroundColor: hovered === 'download' ? '#4a7a1e' : '#5d9228', border: 'none',
                     padding: '8px 12px', fontSize: '13px',
                     fontWeight: 600, color: '#fff', cursor: 'pointer',
                     fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                    transform: hovered === 'download' ? 'translateY(-1px)' : 'none',
+                    boxShadow: hovered === 'download' ? '0 4px 12px rgba(93,146,40,0.35)' : 'none',
+                    transition: 'all 0.15s',
                   }}
                 >
                   <DownloadIcon />
@@ -267,13 +287,16 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                       <button
                         onClick={() => setMode('edit')}
                         title="Modifier"
+                        {...h('pencil')}
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           width: '30px', height: '30px',
                           borderRadius: '8px',
-                          border: '1px solid #e5e7eb',
-                          backgroundColor: '#fff',
-                          cursor: 'pointer', color: '#6b7280',
+                          border: `1px solid ${hovered === 'pencil' ? '#5d9228' : '#e5e7eb'}`,
+                          backgroundColor: hovered === 'pencil' ? '#e8f2dc' : '#fff',
+                          cursor: 'pointer',
+                          color: hovered === 'pencil' ? '#5d9228' : '#6b7280',
+                          transition: 'all 0.15s',
                         }}
                       >
                         <PencilIcon />
@@ -282,10 +305,13 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                     {mode === 'edit' && (
                       <button
                         onClick={() => setMode('read')}
+                        {...h('cancel')}
                         style={{
-                          fontSize: '13px', color: '#6b7280',
+                          fontSize: '13px',
+                          color: hovered === 'cancel' ? '#1f2937' : '#6b7280',
                           background: 'none', border: 'none', cursor: 'pointer',
                           fontFamily: 'inherit', padding: '4px 8px',
+                          transition: 'color 0.15s',
                         }}
                       >
                         Annuler
@@ -293,11 +319,17 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                     )}
                     <button
                       onClick={onClose}
+                      {...h('close')}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         width: '30px', height: '30px',
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        fontSize: '16px', color: '#9ca3af', lineHeight: 1,
+                        borderRadius: '8px',
+                        background: hovered === 'close' ? '#fde8ea' : 'none',
+                        border: 'none', cursor: 'pointer',
+                        fontSize: '16px',
+                        color: hovered === 'close' ? '#d84150' : '#9ca3af',
+                        lineHeight: 1,
+                        transition: 'all 0.15s',
                       }}
                     >
                       ✕
@@ -407,14 +439,39 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                   }}>
                     {mode === 'read' && (
                       <div style={{ display: 'flex', gap: '6px' }}>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".svg,.png,.ico,.eps"
+                          style={{ display: 'none' }}
+                          onChange={handleUpdateFile}
+                        />
                         <button
-                          onClick={handleArchive}
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={updating}
+                          {...(updating ? {} : h('update'))}
                           style={{
                             fontSize: '12px', fontWeight: 500,
                             padding: '6px 12px', borderRadius: '8px',
-                            border: `1px solid ${archiveConfirm ? '#d97706' : '#e5e7eb'}`,
-                            backgroundColor: archiveConfirm ? '#fef3c7' : 'transparent',
-                            color: archiveConfirm ? '#d97706' : '#9ca3af',
+                            border: `1px solid ${hovered === 'update' ? '#5d9228' : '#e5e7eb'}`,
+                            backgroundColor: hovered === 'update' ? '#e8f2dc' : 'transparent',
+                            color: updating ? '#9ca3af' : hovered === 'update' ? '#5d9228' : '#6b7280',
+                            cursor: updating ? 'not-allowed' : 'pointer',
+                            fontFamily: 'inherit',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {updating ? 'Envoi…' : 'Mettre à jour'}
+                        </button>
+                        <button
+                          onClick={handleArchive}
+                          {...h('archive')}
+                          style={{
+                            fontSize: '12px', fontWeight: 500,
+                            padding: '6px 12px', borderRadius: '8px',
+                            border: `1px solid ${archiveConfirm ? '#d97706' : hovered === 'archive' ? '#d97706' : '#e5e7eb'}`,
+                            backgroundColor: archiveConfirm ? '#fef3c7' : hovered === 'archive' ? '#fef3c7' : 'transparent',
+                            color: archiveConfirm ? '#d97706' : hovered === 'archive' ? '#d97706' : '#9ca3af',
                             cursor: 'pointer', fontFamily: 'inherit',
                             transition: 'all 0.15s',
                           }}
@@ -423,12 +480,13 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                         </button>
                         <button
                           onClick={handleDelete}
+                          {...h('delete')}
                           style={{
                             fontSize: '12px', fontWeight: 500,
                             padding: '6px 12px', borderRadius: '8px',
-                            border: `1px solid ${deleteConfirm ? '#d84150' : '#e5e7eb'}`,
-                            backgroundColor: deleteConfirm ? '#fde8ea' : 'transparent',
-                            color: deleteConfirm ? '#d84150' : '#9ca3af',
+                            border: `1px solid ${deleteConfirm ? '#d84150' : hovered === 'delete' ? '#d84150' : '#e5e7eb'}`,
+                            backgroundColor: deleteConfirm ? '#fde8ea' : hovered === 'delete' ? '#fde8ea' : 'transparent',
+                            color: deleteConfirm ? '#d84150' : hovered === 'delete' ? '#d84150' : '#9ca3af',
                             cursor: 'pointer', fontFamily: 'inherit',
                             transition: 'all 0.15s',
                           }}
@@ -442,13 +500,17 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                       <button
                         onClick={handleSave}
                         disabled={saving}
+                        {...(saving ? {} : h('save'))}
                         style={{
                           borderRadius: '8px', border: 'none',
-                          backgroundColor: saving ? '#8ab54a' : '#5d9228',
+                          backgroundColor: saving ? '#8ab54a' : hovered === 'save' ? '#4a7a1e' : '#5d9228',
                           padding: '9px 20px', fontSize: '14px',
                           fontWeight: 600, color: '#fff',
                           cursor: saving ? 'not-allowed' : 'pointer',
                           fontFamily: 'inherit',
+                          transform: hovered === 'save' ? 'translateY(-1px)' : 'none',
+                          boxShadow: hovered === 'save' ? '0 4px 12px rgba(93,146,40,0.35)' : 'none',
+                          transition: 'all 0.15s',
                         }}
                       >
                         {saving ? 'Enregistrement…' : 'Enregistrer'}

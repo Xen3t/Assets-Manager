@@ -1,6 +1,7 @@
 'use client'
 
 import type { Brand, AssetFormat } from '@/types'
+import UploadZone from './UploadZone'
 
 const BRANDS: Brand[] = ['CASANOOV', 'CAZEBOO', 'SICAAN']
 const FORMATS: AssetFormat[] = ['svg', 'png', 'ico', 'eps']
@@ -16,6 +17,7 @@ interface Props {
   filters: Filters
   onChange: (f: Filters) => void
   total: number
+  onUploaded?: () => void
 }
 
 function ChevronIcon() {
@@ -34,7 +36,7 @@ function SearchIcon() {
   )
 }
 
-export default function FilterBar({ filters, onChange, total }: Props) {
+export default function FilterBar({ filters, onChange, total, onUploaded }: Props) {
   function set(key: keyof Filters, value: string) {
     onChange({ ...filters, [key]: value })
   }
@@ -45,40 +47,47 @@ export default function FilterBar({ filters, onChange, total }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
 
-      {/* Barre de recherche large */}
-      <div style={{ position: 'relative', width: '100%', maxWidth: '680px' }}>
-        <div style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-          <SearchIcon />
+      {/* Ligne recherche */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '680px' }}>
+
+        {/* Bouton import — icon only */}
+        {onUploaded && <UploadZone onUploaded={onUploaded} iconOnly />}
+
+        {/* Barre de recherche */}
+        <div style={{ position: 'relative', flex: 1 }}>
+          <div style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+            <SearchIcon />
+          </div>
+          <input
+            type="search"
+            placeholder="Rechercher un asset…"
+            value={filters.search}
+            onChange={(e) => set('search', e.target.value)}
+            style={{
+              width: '100%', height: '52px',
+              borderRadius: '10px',
+              border: '1.5px solid #e5e7eb',
+              backgroundColor: '#fff',
+              paddingLeft: '48px', paddingRight: '120px',
+              fontSize: '15px', color: '#1f2937',
+              outline: 'none', boxSizing: 'border-box',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              transition: 'border-color 0.15s, box-shadow 0.15s',
+            }}
+            onFocus={(e) => { e.target.style.borderColor = '#38a0ad'; e.target.style.boxShadow = '0 0 0 3px rgba(56,160,173,0.15)' }}
+            onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
+          />
+          {!filters.search && (
+            <kbd style={{
+              position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)',
+              fontSize: '11px', color: '#9ca3af', backgroundColor: '#f1f3f5',
+              borderRadius: '6px', padding: '3px 8px', pointerEvents: 'none', fontFamily: 'inherit',
+            }}>
+              Ctrl+K
+            </kbd>
+          )}
         </div>
-        <input
-          type="search"
-          placeholder="Rechercher un asset…"
-          value={filters.search}
-          onChange={(e) => set('search', e.target.value)}
-          style={{
-            width: '100%', height: '52px',
-            borderRadius: '10px',
-            border: '1.5px solid #e5e7eb',
-            backgroundColor: '#fff',
-            paddingLeft: '48px', paddingRight: '120px',
-            fontSize: '15px', color: '#1f2937',
-            outline: 'none', boxSizing: 'border-box',
-            fontFamily: 'inherit',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
-          }}
-          onFocus={(e) => { e.target.style.borderColor = '#38a0ad'; e.target.style.boxShadow = '0 0 0 3px rgba(56,160,173,0.15)' }}
-          onBlur={(e) => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)' }}
-        />
-        {!filters.search && (
-          <kbd style={{
-            position: 'absolute', right: '18px', top: '50%', transform: 'translateY(-50%)',
-            fontSize: '11px', color: '#9ca3af', backgroundColor: '#f1f3f5',
-            borderRadius: '6px', padding: '3px 8px', pointerEvents: 'none', fontFamily: 'inherit',
-          }}>
-            Ctrl+K
-          </kbd>
-        )}
       </div>
 
       {/* Pills de filtres */}
