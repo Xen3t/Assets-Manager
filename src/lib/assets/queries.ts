@@ -1,12 +1,12 @@
 import { getDb } from '@/lib/db'
-import type { AssetWithDetails, Brand, AssetFormat, AssetStatus } from '@/types'
+import type { AssetWithDetails, AssetFormat, AssetStatus } from '@/types'
+import type { Marque, Couleur } from '@/lib/taxonomy'
 
 export interface AssetFilters {
-  brand?: Brand
+  marque?: Marque
   filetype?: AssetFormat
   status?: AssetStatus
   search?: string
-  tag?: string
 }
 
 interface DbRow {
@@ -20,11 +20,11 @@ interface DbRow {
   deleted_at: string | null
   author: string | null
   created_at: string
-  brand: string | null
+  marque: string | null
+  type: string | null
+  gamme: string | null
+  couleur: string | null
   description: string | null
-  color: string | null
-  style: string | null
-  tags: string | null
 }
 
 function rowToAsset(row: DbRow): AssetWithDetails {
@@ -40,14 +40,12 @@ function rowToAsset(row: DbRow): AssetWithDetails {
     createdAt: row.created_at,
     metadata: {
       assetId: row.id,
-      brand: (row.brand as Brand) ?? undefined,
+      marque: row.marque ?? undefined,
+      type: row.type ?? undefined,
+      gamme: row.gamme ?? undefined,
+      couleur: row.couleur ?? undefined,
       description: row.description ?? undefined,
-      color: row.color ?? undefined,
-      style: row.style ?? undefined,
     },
-    tags: row.tags
-      ? row.tags.split(',').map((t, i) => ({ id: i, name: t.trim() }))
-      : [],
     currentVersion: {
       id: 0,
       assetId: row.id,
@@ -68,36 +66,26 @@ export function getAssets(filters: AssetFilters = {}): AssetWithDetails[] {
     conditions.push('a.status = ?')
     params.push(filters.status)
   }
-  if (filters.brand) {
-    conditions.push('m.brand = ?')
-    params.push(filters.brand)
+  if (filters.marque) {
+    conditions.push('m.marque = ?')
+    params.push(filters.marque)
   }
   if (filters.filetype) {
     conditions.push('a.filetype = ?')
     params.push(filters.filetype)
   }
   if (filters.search) {
-    conditions.push('(a.filename LIKE ? OR m.description LIKE ?)')
-    params.push(`%${filters.search}%`, `%${filters.search}%`)
-  }
-  if (filters.tag) {
-    conditions.push('EXISTS (SELECT 1 FROM asset_tags at2 JOIN tags t ON t.id = at2.tag_id WHERE at2.asset_id = a.id AND t.name LIKE ?)')
-    params.push(`%${filters.tag}%`)
+    conditions.push('(a.filename LIKE ? OR m.description LIKE ? OR m.gamme LIKE ? OR m.type LIKE ?)')
+    params.push(`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`)
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
   const rows = db.prepare(`
-    SELECT
-      a.*,
-      m.brand, m.description, m.color, m.style,
-      GROUP_CONCAT(t.name) as tags
+    SELECT a.*, m.marque, m.type, m.gamme, m.couleur, m.description
     FROM assets a
     LEFT JOIN asset_metadata m ON m.asset_id = a.id
-    LEFT JOIN asset_tags at2 ON at2.asset_id = a.id
-    LEFT JOIN tags t ON t.id = at2.tag_id
     ${where}
-    GROUP BY a.id
     ORDER BY a.created_at DESC
   `).all(...(params as Parameters<typeof db.prepare>)) as unknown as DbRow[]
 
@@ -107,16 +95,10 @@ export function getAssets(filters: AssetFilters = {}): AssetWithDetails[] {
 export function getAssetById(id: number): AssetWithDetails | null {
   const db = getDb()
   const row = db.prepare(`
-    SELECT
-      a.*,
-      m.brand, m.description, m.color, m.style,
-      GROUP_CONCAT(t.name) as tags
+    SELECT a.*, m.marque, m.type, m.gamme, m.couleur, m.description
     FROM assets a
     LEFT JOIN asset_metadata m ON m.asset_id = a.id
-    LEFT JOIN asset_tags at2 ON at2.asset_id = a.id
-    LEFT JOIN tags t ON t.id = at2.tag_id
     WHERE a.id = ?
-    GROUP BY a.id
   `).get(id) as DbRow | undefined
 
   return row ? rowToAsset(row) : null
@@ -148,34 +130,40 @@ export function createAsset(data: {
 
 export function updateAssetMetadata(
   assetId: number,
-  data: Partial<{ brand: Brand; description: string; color: string; style: string; author: string; tags: string[] }>
+  data: Partial<{
+    marque: Marque
+    type: string
+    gamme: string
+    couleur: Couleur
+    description: string
+    author: string
+  }>
 ): void {
   const db = getDb()
 
-  if (data.brand !== undefined || data.description !== undefined || data.color !== undefined || data.style !== undefined) {
+  const { author, ...meta } = data
+
+  if (Object.keys(meta).length > 0) {
     db.prepare(`
       UPDATE asset_metadata
-      SET brand = COALESCE(?, brand),
-          description = COALESCE(?, description),
-          color = COALESCE(?, color),
-          style = COALESCE(?, style)
+      SET marque      = COALESCE(?, marque),
+          type        = COALESCE(?, type),
+          gamme       = COALESCE(?, gamme),
+          couleur     = COALESCE(?, couleur),
+          description = COALESCE(?, description)
       WHERE asset_id = ?
-    `).run(data.brand ?? null, data.description ?? null, data.color ?? null, data.style ?? null, assetId)
+    `).run(
+      meta.marque ?? null,
+      meta.type ?? null,
+      meta.gamme ?? null,
+      meta.couleur ?? null,
+      meta.description ?? null,
+      assetId
+    )
   }
 
-  if (data.author !== undefined) {
-    db.prepare('UPDATE assets SET author = ? WHERE id = ?').run(data.author, assetId)
-  }
-
-  if (data.tags) {
-    db.prepare('DELETE FROM asset_tags WHERE asset_id = ?').run(assetId)
-    for (const name of data.tags) {
-      const trimmed = name.trim()
-      if (!trimmed) continue
-      db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)').run(trimmed)
-      const tag = db.prepare('SELECT id FROM tags WHERE name = ? COLLATE NOCASE').get(trimmed) as { id: number }
-      db.prepare('INSERT OR IGNORE INTO asset_tags (asset_id, tag_id) VALUES (?, ?)').run(assetId, tag.id)
-    }
+  if (author !== undefined) {
+    db.prepare('UPDATE assets SET author = ? WHERE id = ?').run(author, assetId)
   }
 }
 
@@ -185,26 +173,26 @@ export function updateAssetStatus(assetId: number, status: AssetStatus): void {
   db.prepare('UPDATE assets SET status = ?, deleted_at = ? WHERE id = ?').run(status, deletedAt, assetId)
 }
 
+export function updateAssetFilename(assetId: number, filename: string): void {
+  const db = getDb()
+  db.prepare('UPDATE assets SET filename = ? WHERE id = ?').run(filename.trim(), assetId)
+}
+
 export function updateAssetFile(assetId: number, newFilepath: string, newHash: string): void {
   const db = getDb()
   const current = db.prepare('SELECT filepath, hash, version FROM assets WHERE id = ?').get(assetId) as { filepath: string; hash: string; version: number } | undefined
   if (!current) return
-  // Archive l'ancienne version
   db.prepare('INSERT INTO asset_versions (asset_id, version_number, filepath, hash) VALUES (?, ?, ?, ?)').run(assetId, current.version, current.filepath, current.hash)
-  // Met à jour l'asset
   db.prepare('UPDATE assets SET filepath = ?, hash = ?, version = version + 1 WHERE id = ?').run(newFilepath, newHash, assetId)
 }
 
 export function findAssetByHash(hash: string): AssetWithDetails | null {
   const db = getDb()
   const row = db.prepare(`
-    SELECT a.*, m.brand, m.description, m.color, m.style, GROUP_CONCAT(t.name) as tags
+    SELECT a.*, m.marque, m.type, m.gamme, m.couleur, m.description
     FROM assets a
     LEFT JOIN asset_metadata m ON m.asset_id = a.id
-    LEFT JOIN asset_tags at2 ON at2.asset_id = a.id
-    LEFT JOIN tags t ON t.id = at2.tag_id
     WHERE a.hash = ? AND a.status != 'deleted'
-    GROUP BY a.id
     LIMIT 1
   `).get(hash) as DbRow | undefined
 

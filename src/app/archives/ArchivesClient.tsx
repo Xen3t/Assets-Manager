@@ -35,6 +35,11 @@ export default function ArchivesClient({ session }: { session: Session }) {
     fetchAssets()
   }
 
+  function handleSaved(updated?: AssetWithDetails) {
+    if (updated) setSelectedAsset(updated)
+    fetchAssets()
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <Header session={session} />
@@ -69,7 +74,7 @@ export default function ArchivesClient({ session }: { session: Session }) {
         asset={selectedAsset}
         isGraphiste={true}
         onClose={() => setSelectedAsset(null)}
-        onSaved={fetchAssets}
+        onSaved={handleSaved}
         onStatusChange={handleStatusChange}
       />
     </div>

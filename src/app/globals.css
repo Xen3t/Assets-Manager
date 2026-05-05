@@ -2,11 +2,17 @@
 @source "../**/*.{tsx,ts}";
 @source "../../app/**/*.{tsx,ts}";
 
+:root {
+  --brand-main: #5d9228;
+  --brand-light: #e8f2dc;
+  --brand-dark: #4a7a1e;
+}
+
 @theme inline {
-  /* Brand Colors */
-  --color-brand-green: #5d9228;
-  --color-brand-green-light: #e8f2dc;
-  --color-brand-green-hover: #4e7d22;
+  /* Brand Colors — wired to dynamic CSS vars */
+  --color-brand-green: var(--brand-main);
+  --color-brand-green-light: var(--brand-light);
+  --color-brand-green-hover: var(--brand-dark);
   --color-brand-red: #d84150;
   --color-brand-red-light: #fde8ea;
   --color-brand-teal: #38a0ad;

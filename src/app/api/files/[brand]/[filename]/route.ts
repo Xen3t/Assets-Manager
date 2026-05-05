@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFileSync, existsSync } from 'node:fs'
 import { join, extname } from 'node:path'
-import type { Brand } from '@/types'
 
 const MIME: Record<string, string> = {
   '.svg': 'image/svg+xml',

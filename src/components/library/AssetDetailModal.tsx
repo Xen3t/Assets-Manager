@@ -2,16 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { AssetWithDetails, Brand, AssetStatus } from '@/types'
-
-const BRANDS: Brand[] = ['CASANOOV', 'CAZEBOO', 'SICAAN']
-const STYLES = ['', 'filled', 'outlined', 'duotone', 'flat']
+import type { AssetWithDetails, AssetStatus } from '@/types'
+import {
+  MARQUES, MARQUE_LABELS, MARQUE_COLORS, COULEURS, getTypes, getGammes, formatLabel,
+  type Marque, type Couleur,
+} from '@/lib/taxonomy'
+import { applyBrandTheme, restoreBaseBrand } from '@/lib/brand'
 
 interface Props {
   asset: AssetWithDetails | null
   isGraphiste: boolean
   onClose: () => void
-  onSaved: () => void
+  onSaved: (updated?: AssetWithDetails) => void
   onStatusChange: (id: number, status: AssetStatus | 'active') => Promise<void>
 }
 
@@ -65,13 +67,30 @@ function DownloadIcon() {
   )
 }
 
+function formatAuteurDate(author?: string, createdAt?: string): string {
+  const parts: string[] = []
+  if (author) parts.push(author)
+  if (createdAt) {
+    const d = new Date(createdAt)
+    const day = String(d.getDate()).padStart(2, '0')
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const year = d.getFullYear()
+    parts.push(`${day}-${month}-${year}`)
+  }
+  return parts.join(' · ')
+}
+
 export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved, onStatusChange }: Props) {
   const [mode, setMode] = useState<'read' | 'edit'>('read')
-  const [brand, setBrand] = useState<Brand | ''>('')
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [renameSaving, setRenameSaving] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement>(null)
+  const [marque, setMarque] = useState<Marque | ''>('')
+  const [activeType, setActiveType] = useState('')
+  const [selections, setSelections] = useState<Record<string, string[]>>({})
+  const [couleur, setCouleur] = useState<Couleur | ''>('')
   const [description, setDescription] = useState('')
-  const [color, setColor] = useState('')
-  const [style, setStyle] = useState('')
-  const [tags, setTags] = useState('')
   const [saving, setSaving] = useState(false)
   const [archiveConfirm, setArchiveConfirm] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
@@ -81,34 +100,102 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
   const h = (id: string) => ({ onMouseEnter: () => setHovered(id), onMouseLeave: () => setHovered(null) })
 
   useEffect(() => {
-    if (!asset) { setMode('read'); return }
-    setBrand((asset.metadata?.brand as Brand) ?? '')
+    if (!asset) { setMode('read'); setRenaming(false); restoreBaseBrand(); return }
+    setRenaming(false)
+    const assetMarque = (asset.metadata?.marque as Marque) ?? ''
+    setMarque(assetMarque)
+    if (assetMarque) applyBrandTheme(assetMarque)
+    const parsedSelections = parseSelections(asset.metadata?.gamme ?? null, asset.metadata?.type ?? null)
+    setSelections(parsedSelections)
+    const firstType = Object.keys(parsedSelections)[0] ?? asset.metadata?.type?.split(',')[0] ?? ''
+    setActiveType(firstType)
+    setCouleur((asset.metadata?.couleur as Couleur) ?? '')
     setDescription(asset.metadata?.description ?? '')
-    setColor(asset.metadata?.color ?? '')
-    setStyle(asset.metadata?.style ?? '')
-    setTags(asset.tags.map((t) => t.name).join(', '))
     setArchiveConfirm(false)
     setDeleteConfirm(false)
     setMode('read')
   }, [asset])
 
+  function parseSelections(gammeRaw: string | null, typeRaw: string | null): Record<string, string[]> {
+    if (!gammeRaw) return {}
+    if (gammeRaw.startsWith('{')) {
+      try { return JSON.parse(gammeRaw) as Record<string, string[]> } catch { return {} }
+    }
+    // Legacy flat CSV — reconstruct using the stored type if it's unambiguous
+    if (typeRaw) {
+      const types = typeRaw.split(',').filter(Boolean)
+      if (types.length === 1) return { [types[0]]: gammeRaw.split(',').filter(Boolean) }
+    }
+    return {}
+  }
+
+  function handleMarqueChange(m: Marque) {
+    setMarque(m)
+    setActiveType('')
+    setSelections({})
+    applyBrandTheme(m)
+  }
+
+  function toggleGamme(g: string, t: string) {
+    setSelections((prev) => {
+      const curr = prev[t] ?? []
+      const next = curr.includes(g) ? curr.filter((x) => x !== g) : [...curr, g]
+      if (next.length === 0) {
+        const { [t]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [t]: next }
+    })
+  }
+
+  function gammeCountForType(t: string): number {
+    return (selections[t] ?? []).length
+  }
+
   async function handleSave() {
     if (!asset) return
     setSaving(true)
-    await fetch(`/api/assets/${asset.id}`, {
+    const typeKeys = Object.keys(selections)
+    const derivedType = typeKeys.length > 0 ? typeKeys.join(',') : activeType || undefined
+    const res = await fetch(`/api/assets/${asset.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        brand: brand || undefined,
+        marque: marque || undefined,
+        type: derivedType,
+        gamme: typeKeys.length > 0 ? JSON.stringify(selections) : undefined,
+        couleur: couleur || undefined,
         description: description || undefined,
-        color: color || undefined,
-        style: style || undefined,
-        tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
       }),
     })
+    const updated = res.ok ? await res.json() as AssetWithDetails : undefined
     setSaving(false)
-    onSaved()
+    onSaved(updated)
     setMode('read')
+  }
+
+  function startRename() {
+    if (!asset) return
+    setRenameValue(asset.filename)
+    setRenaming(true)
+    setTimeout(() => renameInputRef.current?.select(), 30)
+  }
+
+  async function confirmRename() {
+    if (!asset || !renameValue.trim() || renameValue.trim() === asset.filename) {
+      setRenaming(false)
+      return
+    }
+    setRenameSaving(true)
+    const res = await fetch(`/api/assets/${asset.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: renameValue.trim() }),
+    })
+    const updated = res.ok ? await res.json() as AssetWithDetails : undefined
+    setRenameSaving(false)
+    setRenaming(false)
+    if (updated) onSaved(updated)
   }
 
   function handleDownload() {
@@ -146,13 +233,15 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
   }
 
   const canPreview = asset && (asset.filetype === 'svg' || asset.filetype === 'png' || asset.filetype === 'ico')
+  const bc = marque ? MARQUE_COLORS[marque as Marque] : { main: 'var(--brand-main)', light: 'var(--brand-light)', dark: 'var(--brand-dark)' }
   const isArchived = asset?.status === 'archived'
+  const types = marque ? getTypes(marque as Marque) : []
+  const products = marque && activeType ? getGammes(marque as Marque, activeType) : []
 
   return (
     <AnimatePresence>
       {asset && (
         <>
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -165,7 +254,6 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
             }}
           />
 
-          {/* Centrage */}
           <div
             style={{
               position: 'fixed', inset: 0, zIndex: 50,
@@ -183,7 +271,7 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
               style={{
                 display: 'flex',
                 width: '100%',
-                maxWidth: '820px',
+                maxWidth: '860px',
                 maxHeight: '90vh',
                 borderRadius: '16px',
                 backgroundColor: '#f1f3f5',
@@ -193,30 +281,22 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
             >
               {/* Colonne preview */}
               <div style={{
-                width: '280px',
-                flexShrink: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
+                width: '280px', flexShrink: 0,
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
                 gap: '16px',
                 backgroundColor: '#fff',
                 padding: '24px',
                 borderRight: '1px solid #e5e7eb',
               }}>
                 <div style={{
-                  width: '220px', height: '220px',
-                  borderRadius: '12px',
+                  width: '220px', height: '220px', borderRadius: '12px',
                   backgroundColor: '#f1f3f5',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   overflow: 'hidden',
                 }}>
                   {canPreview ? (
-                    <img
-                      src={asset.filepath}
-                      alt={asset.filename}
-                      style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px' }}
-                    />
+                    <img src={asset.filepath} alt={asset.filename} style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '12px' }} />
                   ) : (
                     <span style={{ fontSize: '20px', fontWeight: 700, color: '#d1d5db', textTransform: 'uppercase' }}>
                       {asset.filetype}
@@ -224,13 +304,83 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                   )}
                 </div>
 
-                <div style={{ textAlign: 'center', width: '100%' }}>
-                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#1f2937', margin: 0, wordBreak: 'break-all' }}>
-                    {asset.filename}
-                  </p>
-                  <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    {asset.filetype} · v{asset.version}
-                  </p>
+                <div style={{ width: '100%' }}>
+                  {renaming ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      <input
+                        ref={renameInputRef}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') confirmRename(); if (e.key === 'Escape') setRenaming(false) }}
+                        disabled={renameSaving}
+                        style={{
+                          width: '100%', borderRadius: '6px',
+                          border: '1.5px solid #d97706',
+                          padding: '5px 8px', fontSize: '12px',
+                          color: '#1f2937', outline: 'none',
+                          boxSizing: 'border-box', fontFamily: 'inherit',
+                          backgroundColor: '#fff',
+                        }}
+                      />
+                      <div style={{
+                        display: 'flex', alignItems: 'flex-start', gap: '5px',
+                        padding: '6px 8px', borderRadius: '6px',
+                        backgroundColor: '#fef3c7', border: '1px solid #fde68a',
+                      }}>
+                        <span style={{ fontSize: '12px', flexShrink: 0 }}>⚠️</span>
+                        <span style={{ fontSize: '11px', color: '#92400e', lineHeight: 1.4 }}>
+                          Peut casser des automatisations qui s&apos;appuient sur ce nom.
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '5px' }}>
+                        <button
+                          onClick={confirmRename}
+                          disabled={renameSaving}
+                          style={{
+                            flex: 1, padding: '5px', borderRadius: '6px',
+                            backgroundColor: 'var(--brand-main)', border: 'none',
+                            color: '#fff', fontSize: '11px', fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          {renameSaving ? '…' : 'OK'}
+                        </button>
+                        <button
+                          onClick={() => setRenaming(false)}
+                          disabled={renameSaving}
+                          style={{
+                            flex: 1, padding: '5px', borderRadius: '6px',
+                            backgroundColor: '#fff', border: '1px solid #e5e7eb',
+                            color: '#6b7280', fontSize: '11px',
+                            cursor: 'pointer', fontFamily: 'inherit',
+                          }}
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center' }}>
+                      <p
+                        onClick={isGraphiste ? startRename : undefined}
+                        title={isGraphiste ? 'Cliquer pour renommer' : undefined}
+                        style={{
+                          fontSize: '13px', fontWeight: 600, color: '#1f2937',
+                          margin: 0, wordBreak: 'break-all',
+                          cursor: isGraphiste ? 'text' : 'default',
+                          borderRadius: '4px', padding: '2px 4px',
+                          transition: 'background-color 0.15s',
+                        }}
+                        onMouseEnter={(e) => { if (isGraphiste) e.currentTarget.style.backgroundColor = '#f1f3f5' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                      >
+                        {asset.filename}
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#9ca3af', margin: '4px 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {asset.filetype} · v{asset.version}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <button
@@ -238,10 +388,9 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                   {...h('download')}
                   style={{
                     width: '100%', borderRadius: '8px',
-                    backgroundColor: hovered === 'download' ? '#4a7a1e' : '#5d9228', border: 'none',
-                    padding: '8px 12px', fontSize: '13px',
-                    fontWeight: 600, color: '#fff', cursor: 'pointer',
-                    fontFamily: 'inherit',
+                    backgroundColor: hovered === 'download' ? 'var(--brand-dark)' : 'var(--brand-main)', border: 'none',
+                    padding: '8px 12px', fontSize: '13px', fontWeight: 600, color: '#fff',
+                    cursor: 'pointer', fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                     transform: hovered === 'download' ? 'translateY(-1px)' : 'none',
                     boxShadow: hovered === 'download' ? '0 4px 12px rgba(93,146,40,0.35)' : 'none',
@@ -254,31 +403,21 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
               </div>
 
               {/* Colonne métadonnées */}
-              <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                minWidth: 0,
-                overflow: 'hidden',
-              }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
                 {/* Header */}
                 <div style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '16px 20px',
-                  backgroundColor: '#fff',
-                  borderBottom: '1px solid #e5e7eb',
-                  gap: '8px',
+                  padding: '16px 20px', backgroundColor: '#fff',
+                  borderBottom: '1px solid #e5e7eb', gap: '8px',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <h2 style={{ fontSize: '14px', fontWeight: 600, color: '#1f2937', margin: 0 }}>
                       {mode === 'edit' ? 'Modifier' : 'Informations'}
                     </h2>
                     {isArchived && (
-                      <span style={{
-                        fontSize: '11px', fontWeight: 600,
-                        backgroundColor: '#fde8ea', color: '#d84150',
-                        borderRadius: '99px', padding: '2px 8px',
-                      }}>Archivé</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600, backgroundColor: '#fde8ea', color: '#d84150', borderRadius: '99px', padding: '2px 8px' }}>
+                        Archivé
+                      </span>
                     )}
                   </div>
 
@@ -290,12 +429,11 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                         {...h('pencil')}
                         style={{
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          width: '30px', height: '30px',
-                          borderRadius: '8px',
-                          border: `1px solid ${hovered === 'pencil' ? '#5d9228' : '#e5e7eb'}`,
-                          backgroundColor: hovered === 'pencil' ? '#e8f2dc' : '#fff',
+                          width: '30px', height: '30px', borderRadius: '8px',
+                          border: `1px solid ${hovered === 'pencil' ? 'var(--brand-main)' : '#e5e7eb'}`,
+                          backgroundColor: hovered === 'pencil' ? 'var(--brand-light)' : '#fff',
                           cursor: 'pointer',
-                          color: hovered === 'pencil' ? '#5d9228' : '#6b7280',
+                          color: hovered === 'pencil' ? 'var(--brand-main)' : '#6b7280',
                           transition: 'all 0.15s',
                         }}
                       >
@@ -322,14 +460,11 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                       {...h('close')}
                       style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        width: '30px', height: '30px',
-                        borderRadius: '8px',
+                        width: '30px', height: '30px', borderRadius: '8px',
                         background: hovered === 'close' ? '#fde8ea' : 'none',
-                        border: 'none', cursor: 'pointer',
-                        fontSize: '16px',
+                        border: 'none', cursor: 'pointer', fontSize: '16px',
                         color: hovered === 'close' ? '#d84150' : '#9ca3af',
-                        lineHeight: 1,
-                        transition: 'all 0.15s',
+                        lineHeight: 1, transition: 'all 0.15s',
                       }}
                     >
                       ✕
@@ -347,23 +482,28 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.12 }}
-                        style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
                       >
-                        {asset.metadata?.brand && <MetaRow label="Marque" value={asset.metadata.brand} />}
-                        {asset.tags.length > 0 && <MetaRow label="Tags" value={asset.tags.map((t) => t.name).join(', ')} />}
-                        {asset.metadata?.description && <MetaRow label="Description" value={asset.metadata.description} />}
-                        {asset.metadata?.style && <MetaRow label="Style" value={asset.metadata.style} />}
-                        {asset.metadata?.color && (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Couleur</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <div style={{ width: '16px', height: '16px', borderRadius: '4px', backgroundColor: asset.metadata.color, border: '1px solid #e5e7eb', flexShrink: 0 }} />
-                              <span style={{ fontSize: '14px', color: '#1f2937' }}>{asset.metadata.color}</span>
-                            </div>
-                          </div>
+                        {asset.metadata?.marque && (
+                          <MetaRow label="Marque" value={MARQUE_LABELS[asset.metadata.marque as Marque] ?? asset.metadata.marque.toUpperCase()} />
                         )}
-                        {asset.author && <MetaRow label="Auteur" value={asset.author} />}
-                        <MetaRow label="Importé le" value={new Date(asset.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                        {(asset.metadata?.gamme || asset.metadata?.type) && (() => {
+                          const raw = asset.metadata?.gamme ?? ''
+                          if (raw.startsWith('{')) {
+                            try {
+                              const sel = JSON.parse(raw) as Record<string, string[]>
+                              const text = Object.entries(sel)
+                                .map(([t, gs]) => `${t} (${gs.join(', ')})`)
+                                .join(' · ')
+                              return <MetaRow label="Gamme(s)" value={text} />
+                            } catch { /* fall through */ }
+                          }
+                          if (raw) return <MetaRow label="Gamme(s)" value={raw.split(',').filter(Boolean).join(', ')} />
+                          return <MetaRow label="Type(s)" value={asset.metadata!.type!.split(',').filter(Boolean).join(', ')} />
+                        })()}
+                        {asset.metadata?.couleur && <MetaRow label="Couleur" value={formatLabel(asset.metadata.couleur)} />}
+                        {asset.metadata?.description && <MetaRow label="Description" value={asset.metadata.description} />}
+                        <MetaRow label="Auteur · Import" value={formatAuteurDate(asset.author, asset.createdAt)} />
                       </motion.div>
                     ) : (
                       <motion.div
@@ -372,55 +512,180 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.12 }}
-                        style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}
+                        style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
                       >
+                        {/* Marque */}
                         <Field label="Marque">
                           <div style={{ display: 'flex', gap: '6px' }}>
-                            {BRANDS.map((b) => (
+                            {MARQUES.map((m) => (
                               <button
-                                key={b}
+                                key={m}
                                 type="button"
-                                onClick={() => setBrand(brand === b ? '' : b)}
+                                onClick={() => handleMarqueChange(m)}
                                 style={{
-                                  flex: 1, padding: '7px 4px',
-                                  borderRadius: '8px',
-                                  border: `2px solid ${brand === b ? '#5d9228' : '#e5e7eb'}`,
-                                  backgroundColor: brand === b ? '#e8f2dc' : '#fff',
-                                  color: brand === b ? '#5d9228' : '#6b7280',
+                                  flex: 1, padding: '7px 4px', borderRadius: '8px',
+                                  border: `2px solid ${marque === m ? MARQUE_COLORS[m].main : '#e5e7eb'}`,
+                                  backgroundColor: marque === m ? MARQUE_COLORS[m].light : '#fff',
+                                  color: marque === m ? MARQUE_COLORS[m].main : '#6b7280',
                                   fontSize: '11px', fontWeight: 600,
-                                  cursor: 'pointer', fontFamily: 'inherit',
+                                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                                 }}
                               >
-                                {b}
+                                {MARQUE_LABELS[m]}
                               </button>
                             ))}
                           </div>
                         </Field>
 
-                        <Field label="Tags (séparés par des virgules)">
-                          <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="home, navigation, interface…" style={inputStyle} />
+                        {/* Mini explorateur */}
+                        {marque && (
+                          <Field label="Type & Gamme(s)">
+                            <div style={{
+                              display: 'flex',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              height: '180px',
+                              backgroundColor: '#fff',
+                            }}>
+                              <div style={{ width: '46%', borderRight: '1px solid #e5e7eb', overflowY: 'auto', flexShrink: 0 }}>
+                                {types.map((t) => {
+                                  const count = gammeCountForType(t)
+                                  const isActive = activeType === t
+                                  const hasSelection = count > 0
+                                  return (
+                                    <button
+                                      key={t}
+                                      type="button"
+                                      onClick={() => setActiveType(t)}
+                                      style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        width: '100%', padding: '6px 8px', textAlign: 'left',
+                                        fontSize: '11px', fontWeight: isActive || hasSelection ? 600 : 400,
+                                        cursor: 'pointer',
+                                        backgroundColor: isActive ? bc.light : hasSelection ? bc.light + '99' : 'transparent',
+                                        color: isActive || hasSelection ? bc.main : '#374151',
+                                        border: 'none', borderBottom: '1px solid #f3f4f6',
+                                        fontFamily: 'inherit', transition: 'background-color 0.1s',
+                                      }}
+                                    >
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{t}</span>
+                                      {hasSelection && (
+                                        <span style={{
+                                          flexShrink: 0, marginLeft: '3px',
+                                          fontSize: '9px', fontWeight: 700,
+                                          backgroundColor: bc.main, color: '#fff',
+                                          borderRadius: '99px', padding: '1px 4px', lineHeight: 1.4,
+                                        }}>
+                                          {count}
+                                        </span>
+                                      )}
+                                      {isActive && !hasSelection && (
+                                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ flexShrink: 0, marginLeft: '3px' }}>
+                                          <polyline points="9 18 15 12 9 6"/>
+                                        </svg>
+                                      )}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+
+                              <div style={{ flex: 1, overflowY: 'auto', backgroundColor: '#fafafa', display: 'flex', flexDirection: 'column' }}>
+                                {activeType ? (() => {
+                                  const allChecked = products.length > 0 && products.every((g) => (selections[activeType] ?? []).includes(g))
+                                  return (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (allChecked) {
+                                            const { [activeType]: _, ...rest } = selections
+                                            setSelections(rest)
+                                          } else {
+                                            setSelections((prev) => ({ ...prev, [activeType]: products }))
+                                          }
+                                        }}
+                                        style={{
+                                          width: '100%', padding: '5px 8px',
+                                          fontSize: '10px', fontWeight: 600,
+                                          color: allChecked ? '#d84150' : bc.main,
+                                          backgroundColor: allChecked ? '#fde8ea' : bc.light,
+                                          border: 'none', borderBottom: '1px solid #e5e7eb',
+                                          cursor: 'pointer', textAlign: 'left',
+                                          fontFamily: 'inherit', flexShrink: 0,
+                                        }}
+                                      >
+                                        {allChecked ? 'Tout déselectionner' : 'Tout sélectionner'}
+                                      </button>
+                                      {products.map((g) => {
+                                        const checked = (selections[activeType] ?? []).includes(g)
+                                        return (
+                                          <label
+                                            key={g}
+                                            style={{
+                                              display: 'flex', alignItems: 'center', gap: '6px',
+                                              padding: '5px 8px', cursor: 'pointer',
+                                              fontSize: '11px',
+                                              color: checked ? bc.main : '#374151',
+                                              fontWeight: checked ? 600 : 400,
+                                              borderBottom: '1px solid #f3f4f6',
+                                              backgroundColor: checked ? bc.light + '99' : 'transparent',
+                                            }}
+                                          >
+                                            <input
+                                              type="checkbox"
+                                              checked={checked}
+                                              onChange={() => toggleGamme(g, activeType)}
+                                              style={{ accentColor: bc.main, cursor: 'pointer', flexShrink: 0 }}
+                                            />
+                                            {g}
+                                          </label>
+                                        )
+                                      })}
+                                    </>
+                                  )
+                                })() : (
+                                  <div style={{ padding: '10px 8px', fontSize: '11px', color: '#9ca3af', fontStyle: 'italic' }}>
+                                    ← Sélectionner un type
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {Object.keys(selections).length > 0 && (
+                              <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>
+                                {Object.entries(selections).map(([t, gs], i) => (
+                                  <span key={t}>
+                                    {i > 0 && ' · '}
+                                    <span style={{ fontWeight: 600 }}>{t}</span>
+                                    {' '}({gs.join(', ')})
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </Field>
+                        )}
+
+                        {/* Couleur */}
+                        <Field label="Couleur">
+                          <select value={couleur} onChange={(e) => setCouleur(e.target.value as Couleur | '')} style={inputStyle}>
+                            <option value="">— Aucune —</option>
+                            {COULEURS.map((c) => (
+                              <option key={c} value={c}>{formatLabel(c)}</option>
+                            ))}
+                          </select>
                         </Field>
 
+                        {/* Description */}
                         <Field label="Description">
                           <textarea
                             value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            rows={2}
-                            placeholder="À quoi sert cette icône…"
+                            rows={3}
+                            placeholder="À quoi sert cet asset…"
                             style={{ ...inputStyle, resize: 'none' }}
                           />
                         </Field>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                          <Field label="Style">
-                            <select value={style} onChange={(e) => setStyle(e.target.value)} style={inputStyle}>
-                              {STYLES.map((s) => <option key={s} value={s}>{s || '— Aucun —'}</option>)}
-                            </select>
-                          </Field>
-                          <Field label="Couleur">
-                            <input value={color} onChange={(e) => setColor(e.target.value)} placeholder="#5d9228" style={inputStyle} />
-                          </Field>
-                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -429,11 +694,9 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                 {/* Footer */}
                 {isGraphiste && (
                   <div style={{
-                    padding: '12px 20px',
-                    borderTop: '1px solid #e5e7eb',
+                    padding: '12px 20px', borderTop: '1px solid #e5e7eb',
                     backgroundColor: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
+                    display: 'flex', alignItems: 'center',
                     justifyContent: mode === 'edit' ? 'flex-end' : 'space-between',
                     gap: '8px',
                   }}>
@@ -453,12 +716,11 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                           style={{
                             fontSize: '12px', fontWeight: 500,
                             padding: '6px 12px', borderRadius: '8px',
-                            border: `1px solid ${hovered === 'update' ? '#5d9228' : '#e5e7eb'}`,
-                            backgroundColor: hovered === 'update' ? '#e8f2dc' : 'transparent',
-                            color: updating ? '#9ca3af' : hovered === 'update' ? '#5d9228' : '#6b7280',
+                            border: `1px solid ${hovered === 'update' ? 'var(--brand-main)' : '#e5e7eb'}`,
+                            backgroundColor: hovered === 'update' ? 'var(--brand-light)' : 'transparent',
+                            color: updating ? '#9ca3af' : hovered === 'update' ? 'var(--brand-main)' : '#6b7280',
                             cursor: updating ? 'not-allowed' : 'pointer',
-                            fontFamily: 'inherit',
-                            transition: 'all 0.15s',
+                            fontFamily: 'inherit', transition: 'all 0.15s',
                           }}
                         >
                           {updating ? 'Envoi…' : 'Mettre à jour'}
@@ -467,13 +729,11 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                           onClick={handleArchive}
                           {...h('archive')}
                           style={{
-                            fontSize: '12px', fontWeight: 500,
-                            padding: '6px 12px', borderRadius: '8px',
+                            fontSize: '12px', fontWeight: 500, padding: '6px 12px', borderRadius: '8px',
                             border: `1px solid ${archiveConfirm ? '#d97706' : hovered === 'archive' ? '#d97706' : '#e5e7eb'}`,
                             backgroundColor: archiveConfirm ? '#fef3c7' : hovered === 'archive' ? '#fef3c7' : 'transparent',
                             color: archiveConfirm ? '#d97706' : hovered === 'archive' ? '#d97706' : '#9ca3af',
-                            cursor: 'pointer', fontFamily: 'inherit',
-                            transition: 'all 0.15s',
+                            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                           }}
                         >
                           {archiveConfirm ? 'Confirmer ?' : isArchived ? 'Désarchiver' : 'Archiver'}
@@ -482,13 +742,11 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                           onClick={handleDelete}
                           {...h('delete')}
                           style={{
-                            fontSize: '12px', fontWeight: 500,
-                            padding: '6px 12px', borderRadius: '8px',
+                            fontSize: '12px', fontWeight: 500, padding: '6px 12px', borderRadius: '8px',
                             border: `1px solid ${deleteConfirm ? '#d84150' : hovered === 'delete' ? '#d84150' : '#e5e7eb'}`,
                             backgroundColor: deleteConfirm ? '#fde8ea' : hovered === 'delete' ? '#fde8ea' : 'transparent',
                             color: deleteConfirm ? '#d84150' : hovered === 'delete' ? '#d84150' : '#9ca3af',
-                            cursor: 'pointer', fontFamily: 'inherit',
-                            transition: 'all 0.15s',
+                            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
                           }}
                         >
                           {deleteConfirm ? 'Confirmer ?' : 'Supprimer'}
@@ -503,9 +761,9 @@ export default function AssetDetailModal({ asset, isGraphiste, onClose, onSaved,
                         {...(saving ? {} : h('save'))}
                         style={{
                           borderRadius: '8px', border: 'none',
-                          backgroundColor: saving ? '#8ab54a' : hovered === 'save' ? '#4a7a1e' : '#5d9228',
-                          padding: '9px 20px', fontSize: '14px',
-                          fontWeight: 600, color: '#fff',
+                          backgroundColor: hovered === 'save' ? 'var(--brand-dark)' : 'var(--brand-main)',
+                          opacity: saving ? 0.65 : 1,
+                          padding: '9px 20px', fontSize: '14px', fontWeight: 600, color: '#fff',
                           cursor: saving ? 'not-allowed' : 'pointer',
                           fontFamily: 'inherit',
                           transform: hovered === 'save' ? 'translateY(-1px)' : 'none',

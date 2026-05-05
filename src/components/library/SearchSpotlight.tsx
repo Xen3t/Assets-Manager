@@ -128,14 +128,24 @@ export default function SearchSpotlight({ onSelect }: Props) {
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ fontSize: '14px', fontWeight: 500, color: i === activeIndex ? '#5d9228' : '#1f2937', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.filename}</p>
+                        <p style={{ fontSize: '14px', fontWeight: 500, color: i === activeIndex ? 'var(--brand-main)' : '#1f2937', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{asset.filename}</p>
                         <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0' }}>
-                          {asset.metadata?.brand && <span>{asset.metadata.brand} · </span>}
+                          {asset.metadata?.marque && <span>{asset.metadata.marque.toUpperCase()} · </span>}
                           {asset.filetype.toUpperCase()}
-                          {asset.tags.length > 0 && <span> · {asset.tags.map(t => t.name).join(', ')}</span>}
+                          {asset.metadata?.gamme && (() => {
+                            const raw = asset.metadata.gamme
+                            if (raw.startsWith('{')) {
+                              try {
+                                const sel = JSON.parse(raw) as Record<string, string[]>
+                                const all = Object.values(sel).flat()
+                                return all.length > 0 ? <span> · {all.join(', ')}</span> : null
+                              } catch { /* fall through */ }
+                            }
+                            return <span> · {raw.split(',').filter(Boolean).join(', ')}</span>
+                          })()}
                         </p>
                       </div>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={i === activeIndex ? '#5d9228' : '#d1d5db'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={i === activeIndex ? 'var(--brand-main)' : '#d1d5db'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="9 18 15 12 9 6"/>
                       </svg>
                     </div>

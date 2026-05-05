@@ -106,7 +106,7 @@ export default function TrashClient({ session }: { session: Session }) {
                     {/* Infos */}
                     <div className="flex flex-1 flex-col gap-0.5 min-w-0">
                       <p className="truncate text-sm font-medium text-text-primary">{asset.filename}</p>
-                      <p className="text-xs text-text-disabled uppercase">{asset.filetype}{asset.metadata?.brand ? ` · ${asset.metadata.brand}` : ''}</p>
+                      <p className="text-xs text-text-disabled uppercase">{asset.filetype}{asset.metadata?.marque ? ` · ${asset.metadata.marque}` : ''}</p>
                     </div>
 
                     {/* Jours restants */}

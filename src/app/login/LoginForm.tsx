@@ -141,7 +141,8 @@ export default function LoginForm() {
               style={{
                 marginTop: '4px',
                 borderRadius: '8px',
-                backgroundColor: loading ? '#8ab54a' : '#5d9228',
+                backgroundColor: 'var(--brand-main)',
+                opacity: loading ? 0.65 : 1,
                 border: 'none',
                 padding: '10px 16px',
                 fontSize: '14px',

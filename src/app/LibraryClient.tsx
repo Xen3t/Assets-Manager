@@ -8,6 +8,8 @@ import AssetCard from '@/components/library/AssetCard'
 import AssetDetailModal from '@/components/library/AssetDetailModal'
 import SearchSpotlight from '@/components/library/SearchSpotlight'
 import type { AssetWithDetails, Session, AssetStatus } from '@/types'
+import { setBaseBrand } from '@/lib/brand'
+import type { Marque } from '@/lib/taxonomy'
 
 function ZipIcon() {
   return (
@@ -30,7 +32,7 @@ export default function LibraryClient({ session }: { session: Session | null }) 
   const [downloading, setDownloading] = useState(false)
   const [filters, setFilters] = useState<Filters>({
     search: '',
-    brand: '',
+    marque: '',
     filetype: '',
     status: '',
   })
@@ -39,7 +41,7 @@ export default function LibraryClient({ session }: { session: Session | null }) 
     setLoading(true)
     const params = new URLSearchParams()
     if (filters.search) params.set('search', filters.search)
-    if (filters.brand) params.set('brand', filters.brand)
+    if (filters.marque) params.set('marque', filters.marque)
     if (filters.filetype) params.set('filetype', filters.filetype)
     if (filters.status) params.set('status', filters.status)
 
@@ -51,6 +53,7 @@ export default function LibraryClient({ session }: { session: Session | null }) 
   }, [filters])
 
   useEffect(() => { fetchAssets() }, [fetchAssets])
+  useEffect(() => { setBaseBrand(filters.marque as Marque | '') }, [filters.marque])
 
   // Deselect assets that are no longer visible after filter change
   useEffect(() => {
@@ -108,6 +111,11 @@ export default function LibraryClient({ session }: { session: Session | null }) 
         body: JSON.stringify({ status }),
       })
     }
+    fetchAssets()
+  }
+
+  function handleSaved(updated?: AssetWithDetails) {
+    if (updated) setSelectedAsset(updated)
     fetchAssets()
   }
 
@@ -271,7 +279,7 @@ export default function LibraryClient({ session }: { session: Session | null }) 
         asset={selectedAsset}
         isGraphiste={isPrivileged}
         onClose={() => setSelectedAsset(null)}
-        onSaved={fetchAssets}
+        onSaved={handleSaved}
         onStatusChange={handleStatusChange}
       />
     </div>

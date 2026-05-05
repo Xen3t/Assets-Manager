@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { join, extname } from 'node:path'
-import type { AssetFormat, Brand } from '@/types'
+import type { AssetFormat } from '@/types'
+import type { Marque } from '@/lib/taxonomy'
 
 const ALLOWED_TYPES: Record<string, AssetFormat> = {
   '.svg': 'svg',
@@ -10,13 +11,14 @@ const ALLOWED_TYPES: Record<string, AssetFormat> = {
   '.eps': 'eps',
 }
 
-export function getBrandUploadDir(brand?: Brand | null): string {
+export function getMarqueUploadDir(marque?: Marque | null): string {
+  const key = marque?.toUpperCase() ?? null
   let dir: string
-  if (brand === 'CASANOOV') {
+  if (key === 'CASANOOV') {
     dir = process.env.UPLOAD_DIR_CASANOOV ?? join(process.cwd(), 'public', 'uploads', 'CASANOOV')
-  } else if (brand === 'CAZEBOO') {
+  } else if (key === 'CAZEBOO') {
     dir = process.env.UPLOAD_DIR_CAZEBOO ?? join(process.cwd(), 'public', 'uploads', 'CAZEBOO')
-  } else if (brand === 'SICAAN') {
+  } else if (key === 'SICAAN') {
     dir = process.env.UPLOAD_DIR_SICAAN ?? join(process.cwd(), 'public', 'uploads', 'SICAAN')
   } else {
     dir = process.env.UPLOAD_DIR ?? join(process.cwd(), 'public', 'uploads')
@@ -34,11 +36,11 @@ export function getFileType(filename: string): AssetFormat | null {
   return ALLOWED_TYPES[ext] ?? null
 }
 
-export function saveFile(buffer: Buffer, hash: string, filetype: AssetFormat, brand?: Brand | null): string {
-  const uploadDir = getBrandUploadDir(brand)
+export function saveFile(buffer: Buffer, hash: string, filetype: AssetFormat, marque?: Marque | null): string {
+  const uploadDir = getMarqueUploadDir(marque)
   const filename = `${hash}.${filetype}`
   const fullPath = join(uploadDir, filename)
   writeFileSync(fullPath, buffer)
-  const brandSegment = brand ?? 'default'
-  return `/api/files/${brandSegment}/${filename}`
+  const segment = marque?.toUpperCase() ?? 'default'
+  return `/api/files/${segment}/${filename}`
 }

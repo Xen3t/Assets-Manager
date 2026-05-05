@@ -162,7 +162,7 @@ export default function Header({ session }: { session: Session | null }) {
                 </div>
                 <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                   {pwdSuccess ? (
-                    <p style={{ textAlign: 'center', color: '#5d9228', fontWeight: 600, fontSize: '14px' }}>Mot de passe mis à jour ✓</p>
+                    <p style={{ textAlign: 'center', color: 'var(--brand-main)', fontWeight: 600, fontSize: '14px' }}>Mot de passe mis à jour ✓</p>
                   ) : (
                     <>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -182,7 +182,7 @@ export default function Header({ session }: { session: Session | null }) {
                     <button onClick={() => setShowPwdModal(false)} style={{ fontSize: '14px', color: '#6b7280', background: 'none', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px 16px', cursor: 'pointer', fontFamily: 'inherit' }}>
                       Annuler
                     </button>
-                    <button onClick={handleChangePassword} disabled={pwdSaving} style={{ fontSize: '14px', fontWeight: 600, color: '#fff', backgroundColor: pwdSaving ? '#8ab54a' : '#5d9228', border: 'none', borderRadius: '8px', padding: '8px 18px', cursor: pwdSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    <button onClick={handleChangePassword} disabled={pwdSaving} style={{ fontSize: '14px', fontWeight: 600, color: '#fff', backgroundColor: 'var(--brand-main)', opacity: pwdSaving ? 0.65 : 1, border: 'none', borderRadius: '8px', padding: '8px 18px', cursor: pwdSaving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                       {pwdSaving ? 'Enregistrement…' : 'Confirmer'}
                     </button>
                   </div>

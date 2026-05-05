@@ -26,21 +26,12 @@ export function initSchema(db: DatabaseSync): void {
 
     CREATE TABLE IF NOT EXISTS asset_metadata (
       asset_id    INTEGER PRIMARY KEY REFERENCES assets(id) ON DELETE CASCADE,
-      brand       TEXT    CHECK(brand IN ('CASANOOV', 'CAZEBOO', 'SICAAN')),
-      description TEXT,
-      color       TEXT,
-      style       TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS tags (
-      id    INTEGER PRIMARY KEY AUTOINCREMENT,
-      name  TEXT    NOT NULL UNIQUE COLLATE NOCASE
-    );
-
-    CREATE TABLE IF NOT EXISTS asset_tags (
-      asset_id  INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
-      tag_id    INTEGER NOT NULL REFERENCES tags(id)   ON DELETE CASCADE,
-      PRIMARY KEY (asset_id, tag_id)
+      marque      TEXT,
+      type        TEXT,
+      materiau    TEXT,
+      gamme       TEXT,
+      couleur     TEXT,
+      description TEXT
     );
 
     CREATE TABLE IF NOT EXISTS asset_versions (
@@ -52,11 +43,33 @@ export function initSchema(db: DatabaseSync): void {
       created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE INDEX IF NOT EXISTS idx_assets_status   ON assets(status);
-    CREATE INDEX IF NOT EXISTS idx_assets_hash     ON assets(hash);
-    CREATE INDEX IF NOT EXISTS idx_asset_tags_tag  ON asset_tags(tag_id);
+    CREATE INDEX IF NOT EXISTS idx_assets_status ON assets(status);
+    CREATE INDEX IF NOT EXISTS idx_assets_hash   ON assets(hash);
   `)
 
   // Migrations progressives
   try { db.exec("ALTER TABLE users ADD COLUMN suspended INTEGER NOT NULL DEFAULT 0") } catch { /* déjà présente */ }
+
+  // Migration v2 : nouveau système de taxonomie
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN marque TEXT") } catch { /* déjà présente */ }
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN type TEXT") } catch { /* déjà présente */ }
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN materiau TEXT") } catch { /* déjà présente */ }
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN collection TEXT") } catch { /* déjà présente */ }
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN modele TEXT") } catch { /* déjà présente */ }
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN gamme TEXT") } catch { /* déjà présente */ }
+  try { db.exec("ALTER TABLE asset_metadata ADD COLUMN couleur TEXT") } catch { /* déjà présente */ }
+  // Crée les anciennes tables si elles n'existent pas (pour les vieilles DBs qui les auraient droppées)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS tags (
+        id    INTEGER PRIMARY KEY AUTOINCREMENT,
+        name  TEXT    NOT NULL UNIQUE COLLATE NOCASE
+      );
+      CREATE TABLE IF NOT EXISTS asset_tags (
+        asset_id  INTEGER NOT NULL REFERENCES assets(id) ON DELETE CASCADE,
+        tag_id    INTEGER NOT NULL REFERENCES tags(id)   ON DELETE CASCADE,
+        PRIMARY KEY (asset_id, tag_id)
+      );
+    `)
+  } catch { /* ignoré */ }
 }

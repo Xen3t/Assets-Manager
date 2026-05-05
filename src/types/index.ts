@@ -1,4 +1,4 @@
-export type Brand = 'CASANOOV' | 'CAZEBOO' | 'SICAAN'
+export type { Marque, Couleur } from '@/lib/taxonomy'
 
 export type AssetStatus = 'active' | 'archived' | 'deleted'
 
@@ -20,20 +20,15 @@ export interface Asset {
 
 export interface AssetMetadata {
   assetId: number
-  brand?: Brand
+  marque?: string
+  type?: string
+  gamme?: string
+  couleur?: string
   description?: string
-  color?: string
-  style?: string
-}
-
-export interface Tag {
-  id: number
-  name: string
 }
 
 export interface AssetWithDetails extends Asset {
   metadata?: AssetMetadata
-  tags: Tag[]
   currentVersion: AssetVersion
 }
 
@@ -53,10 +48,9 @@ export interface User {
   createdAt: string
 }
 
-// Type interne pour les lignes retournées par SQLite (inclut le hash du mot de passe)
 export interface DbUser extends Omit<User, 'createdAt' | 'suspended'> {
   password: string
-  suspended: number  // SQLite retourne 0/1
+  suspended: number
   created_at: string
 }
 

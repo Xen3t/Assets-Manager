@@ -1,14 +1,14 @@
 'use client'
 
-import type { Brand, AssetFormat } from '@/types'
+import type { AssetFormat } from '@/types'
+import { MARQUES, MARQUE_LABELS, formatLabel, type Marque } from '@/lib/taxonomy'
 import UploadZone from './UploadZone'
 
-const BRANDS: Brand[] = ['CASANOOV', 'CAZEBOO', 'SICAAN']
 const FORMATS: AssetFormat[] = ['svg', 'png', 'ico', 'eps']
 
 export interface Filters {
   search: string
-  brand: Brand | ''
+  marque: Marque | ''
   filetype: AssetFormat | ''
   status: 'active' | 'archived' | ''
 }
@@ -36,24 +36,62 @@ function SearchIcon() {
   )
 }
 
+function PillSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  label,
+  formatOpt,
+}: {
+  value: T | ''
+  onChange: (v: T | '') => void
+  options: readonly T[]
+  label: string
+  formatOpt?: (v: T) => string
+}) {
+  const active = !!value
+  return (
+    <div style={{ position: 'relative' }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T | '')}
+        style={{
+          appearance: 'none', WebkitAppearance: 'none',
+          height: '36px', paddingLeft: '14px', paddingRight: '32px',
+          borderRadius: '10px',
+          border: `1.5px solid ${active ? 'var(--brand-main)' : '#e5e7eb'}`,
+          backgroundColor: active ? 'var(--brand-light)' : '#fff',
+          color: active ? 'var(--brand-main)' : '#6b7280',
+          fontSize: '13px', fontWeight: 500,
+          cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
+        }}
+      >
+        <option value="">{label}</option>
+        {options.map((o) => (
+          <option key={o} value={o}>{formatOpt ? formatOpt(o) : o}</option>
+        ))}
+      </select>
+      <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: active ? 'var(--brand-main)' : '#9ca3af' }}>
+        <ChevronIcon />
+      </span>
+    </div>
+  )
+}
+
 export default function FilterBar({ filters, onChange, total, onUploaded }: Props) {
-  function set(key: keyof Filters, value: string) {
+  function set<K extends keyof Filters>(key: K, value: Filters[K]) {
     onChange({ ...filters, [key]: value })
   }
 
-  const activeBrand = filters.brand
-  const activeFormat = filters.filetype
+  const hasActiveFilters = !!(filters.marque || filters.filetype || filters.search)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
 
       {/* Ligne recherche */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '680px' }}>
-
-        {/* Bouton import — icon only */}
         {onUploaded && <UploadZone onUploaded={onUploaded} iconOnly />}
 
-        {/* Barre de recherche */}
         <div style={{ position: 'relative', flex: 1 }}>
           <div style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
             <SearchIcon />
@@ -93,58 +131,25 @@ export default function FilterBar({ filters, onChange, total, onUploaded }: Prop
       {/* Pills de filtres */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
 
-        {/* Marque */}
-        <div style={{ position: 'relative' }}>
-          <select
-            value={filters.brand}
-            onChange={(e) => set('brand', e.target.value)}
-            style={{
-              appearance: 'none', WebkitAppearance: 'none',
-              height: '36px', paddingLeft: '14px', paddingRight: '32px',
-              borderRadius: '10px',
-              border: `1.5px solid ${activeBrand ? '#5d9228' : '#e5e7eb'}`,
-              backgroundColor: activeBrand ? '#e8f2dc' : '#fff',
-              color: activeBrand ? '#5d9228' : '#6b7280',
-              fontSize: '13px', fontWeight: 500,
-              cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
-            }}
-          >
-            <option value="">Marque</option>
-            {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
-          </select>
-          <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: activeBrand ? '#5d9228' : '#9ca3af' }}>
-            <ChevronIcon />
-          </span>
-        </div>
+        <PillSelect
+          value={filters.marque}
+          onChange={(v) => set('marque', v as Marque | '')}
+          options={MARQUES}
+          label="Marque"
+          formatOpt={(v) => MARQUE_LABELS[v]}
+        />
 
-        {/* Format */}
-        <div style={{ position: 'relative' }}>
-          <select
-            value={filters.filetype}
-            onChange={(e) => set('filetype', e.target.value)}
-            style={{
-              appearance: 'none', WebkitAppearance: 'none',
-              height: '36px', paddingLeft: '14px', paddingRight: '32px',
-              borderRadius: '10px',
-              border: `1.5px solid ${activeFormat ? '#5d9228' : '#e5e7eb'}`,
-              backgroundColor: activeFormat ? '#e8f2dc' : '#fff',
-              color: activeFormat ? '#5d9228' : '#6b7280',
-              fontSize: '13px', fontWeight: 500,
-              cursor: 'pointer', outline: 'none', fontFamily: 'inherit',
-            }}
-          >
-            <option value="">Format</option>
-            {FORMATS.map((f) => <option key={f} value={f}>{f.toUpperCase()}</option>)}
-          </select>
-          <span style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: activeFormat ? '#5d9228' : '#9ca3af' }}>
-            <ChevronIcon />
-          </span>
-        </div>
+        <PillSelect
+          value={filters.filetype}
+          onChange={(v) => set('filetype', v as AssetFormat | '')}
+          options={FORMATS}
+          label="Format"
+          formatOpt={(v) => v.toUpperCase()}
+        />
 
-        {/* Reset si filtres actifs */}
-        {(activeBrand || activeFormat || filters.search) && (
+        {hasActiveFilters && (
           <button
-            onClick={() => onChange({ search: '', brand: '', filetype: '', status: '' })}
+            onClick={() => onChange({ search: '', marque: '', filetype: '', status: '' })}
             style={{
               height: '36px', paddingLeft: '14px', paddingRight: '14px',
               borderRadius: '10px', border: '1.5px solid #e5e7eb',

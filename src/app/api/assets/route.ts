@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAssets, createAsset, findAssetByHash, updateAssetMetadata } from '@/lib/assets/queries'
 import { computeHash, getFileType, saveFile } from '@/lib/assets/upload'
 import { verifySession, COOKIE_NAME } from '@/lib/auth/session'
-import type { Brand, AssetFormat, AssetStatus } from '@/types'
+import type { AssetFormat, AssetStatus } from '@/types'
+import type { Marque, Couleur } from '@/lib/taxonomy'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
 
   const filters = {
-    brand: (searchParams.get('brand') as Brand) || undefined,
+    marque: (searchParams.get('marque') as Marque) || undefined,
     filetype: (searchParams.get('filetype') as AssetFormat) || undefined,
     status: (searchParams.get('status') as AssetStatus) || undefined,
     search: searchParams.get('search') || undefined,
-    tag: searchParams.get('tag') || undefined,
   }
 
   const assets = getAssets(filters)
@@ -50,16 +50,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ duplicate: true, asset: existing }, { status: 200 })
   }
 
-  // Métadonnées obligatoires envoyées avec le fichier
   const name = (formData.get('name') as string | null)?.trim() || file.name
-  const brand = formData.get('brand') as Brand | null
-  const tagsRaw = formData.get('tags') as string | null
-  const tags = tagsRaw ? JSON.parse(tagsRaw) as string[] : []
+  const marque = formData.get('marque') as Marque | null
+  const type = formData.get('type') as string | null
+  const gamme = (formData.get('gamme') as string | null) || null
+  const couleur = formData.get('couleur') as Couleur | null
   const description = formData.get('description') as string | null
-  const color = formData.get('color') as string | null
-  const style = formData.get('style') as string | null
 
-  const filepath = saveFile(buffer, hash, filetype, brand)
+  const filepath = saveFile(buffer, hash, filetype, marque)
   const assetId = createAsset({
     filename: name,
     filepath,
@@ -69,11 +67,11 @@ export async function POST(req: NextRequest) {
   })
 
   updateAssetMetadata(assetId, {
-    brand: brand ?? undefined,
+    marque: marque ?? undefined,
+    type: type ?? undefined,
+    gamme: gamme ?? undefined,
+    couleur: couleur ?? undefined,
     description: description ?? undefined,
-    color: color ?? undefined,
-    style: style ?? undefined,
-    tags,
   })
 
   return NextResponse.json({ duplicate: false, assetId }, { status: 201 })

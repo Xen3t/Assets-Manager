@@ -29,11 +29,11 @@ export default function UploadZone({ onUploaded, iconOnly = false }: Props) {
     const fd = new FormData()
     fd.append('file', file)
     fd.append('name', data.name)
-    fd.append('brand', data.brand)
-    fd.append('tags', JSON.stringify(data.tags))
-    if (data.description) fd.append('description', data.description)
-    if (data.color) fd.append('color', data.color)
-    if (data.style) fd.append('style', data.style)
+    fd.append('marque', data.marque)
+    fd.append('type', data.type)
+    if (Object.keys(data.selections).length > 0) fd.append('gamme', JSON.stringify(data.selections))
+    if (data.couleur) fd.append('couleur', data.couleur)
+    fd.append('description', data.description)
 
     const res = await fetch('/api/assets', { method: 'POST', body: fd })
     const result = await res.json()
@@ -60,7 +60,7 @@ export default function UploadZone({ onUploaded, iconOnly = false }: Props) {
   }
 
   const colors = {
-    success: { bg: '#e8f2dc', color: '#5d9228' },
+    success: { bg: 'var(--brand-light)', color: 'var(--brand-main)' },
     error: { bg: '#fde8ea', color: '#d84150' },
     info: { bg: '#e0f4f6', color: '#38a0ad' },
   }
@@ -119,10 +119,10 @@ export default function UploadZone({ onUploaded, iconOnly = false }: Props) {
                 flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 borderRadius: '10px', border: 'none',
-                backgroundColor: hovered ? '#4a7a1e' : '#5d9228',
+                backgroundColor: hovered ? 'var(--brand-dark)' : 'var(--brand-main)',
                 color: '#fff',
                 cursor: 'pointer',
-                boxShadow: hovered ? '0 4px 12px rgba(93,146,40,0.35)' : '0 2px 8px rgba(0,0,0,0.06)',
+                boxShadow: hovered ? '0 4px 12px rgba(0,0,0,0.2)' : '0 2px 8px rgba(0,0,0,0.06)',
                 transform: hovered ? 'translateY(-1px)' : 'none',
                 transition: 'all 0.15s',
               }}
@@ -138,7 +138,7 @@ export default function UploadZone({ onUploaded, iconOnly = false }: Props) {
             style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               borderRadius: '8px', border: 'none',
-              backgroundColor: '#5d9228',
+              backgroundColor: 'var(--brand-main)',
               padding: '9px 16px',
               fontSize: '14px', fontWeight: 600, color: '#fff',
               cursor: 'pointer', fontFamily: 'inherit',

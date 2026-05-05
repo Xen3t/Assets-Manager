@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifySession, COOKIE_NAME } from '@/lib/auth/session'
 import { getAssetById, updateAssetFile } from '@/lib/assets/queries'
 import { computeHash, getFileType, saveFile } from '@/lib/assets/upload'
-import type { Brand } from '@/types'
+import type { Marque } from '@/lib/taxonomy'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const token = req.cookies.get(COOKIE_NAME)?.value
@@ -30,8 +30,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Fichier identique à la version actuelle' }, { status: 400 })
   }
 
-  const brand = asset.metadata?.brand as Brand | undefined
-  const filepath = saveFile(buffer, hash, filetype, brand)
+  const marque = asset.metadata?.marque as Marque | undefined
+  const filepath = saveFile(buffer, hash, filetype, marque)
   updateAssetFile(assetId, filepath, hash)
 
   return NextResponse.json({ ok: true, version: asset.version + 1 })

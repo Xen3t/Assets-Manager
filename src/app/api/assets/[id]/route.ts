@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAssetById, updateAssetMetadata, updateAssetStatus } from '@/lib/assets/queries'
+import { getAssetById, updateAssetMetadata, updateAssetStatus, updateAssetFilename } from '@/lib/assets/queries'
 import { verifySession, COOKIE_NAME } from '@/lib/auth/session'
 import type { AssetStatus } from '@/types'
 
@@ -24,6 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (body.status) {
     updateAssetStatus(assetId, body.status as AssetStatus)
   } else {
+    if (body.filename) updateAssetFilename(assetId, body.filename)
     updateAssetMetadata(assetId, body)
   }
 
